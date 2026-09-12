@@ -83,6 +83,15 @@ function deleteMemo(id) {
   deleteDoc(doc(db, "memos", id));
 }
 
+// createdAt은 예전 메모(숫자)와 새 메모(Firestore Timestamp)가 섞여 있을 수 있어
+// 둘 다 밀리초 숫자로 맞춰 줍니다.
+function toMillis(value) {
+  if (value && typeof value.toMillis === "function") {
+    return value.toMillis();
+  }
+  return typeof value === "number" ? value : Date.now();
+}
+
 // Firestore 변화를 실시간으로 지켜보다가, 바뀔 때마다 memos를 채우고 화면을 다시 그립니다.
 function watchMemos() {
   const memosQuery = query(memosCol, orderBy("createdAt"));
@@ -94,7 +103,7 @@ function watchMemos() {
       return {
         id: docSnap.id,
         text: data.text,
-        createdAt: data.createdAt.toMillis()
+        createdAt: toMillis(data.createdAt)
       };
     });
     render();
