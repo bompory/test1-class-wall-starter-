@@ -10,10 +10,11 @@
 // 개인정보 보호: 메모의 text만 Gemini에 보냅니다. uid·이메일은 절대 보내지 않습니다.
 // ===================================================
 
-// 무료 요금제로 쓸 수 있는 모델입니다. Google AI Studio 요금제 페이지
-// (https://ai.google.dev/pricing) 에서 현재 무료 등급 모델을 확인하고,
-// 바뀌었으면 Vercel 환경변수 GEMINI_MODEL로 덮어써서 코드 수정 없이 바꿀 수 있습니다.
-const DEFAULT_MODEL = "gemini-2.5-flash";
+// 무료 등급 중 가장 성능 좋은 모델(Pro)입니다. Flash 계열보다 분당 요청 제한이
+// 빡빡할 수 있어요. Google AI Studio 요금제 페이지(https://ai.google.dev/pricing)에서
+// 최신 무료 등급 모델을 확인하고, 바뀌었으면 Vercel 환경변수 GEMINI_MODEL로
+// 코드 수정 없이 바꿀 수 있습니다. (예: 제한에 자주 걸리면 gemini-3.8-flash로)
+const DEFAULT_MODEL = "gemini-2.5-pro";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
