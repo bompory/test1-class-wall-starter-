@@ -17,10 +17,14 @@
     #writer { margin: 16px 0; }
     #writer textarea { width: 400px; font-size: 16px; }
 
+    /* 선생님 전용 도구 (AI 코멘트 버튼) */
+    #teacherTools { margin: 10px 0; }
+
     /* 메모가 붙는 담벼락 */
     #wall { display: flex; flex-wrap: wrap; gap: 10px; }
     .memo { border: 1px solid #ddd; background: #fffde7; padding: 10px; width: 200px; font-size: 15px; }
     .memo button { float: right; }
+    .aiComment { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #ccc; font-size: 13px; color: #555; }
   </style>
 </head>
 <body>
@@ -37,6 +41,11 @@
 
   <div id="writer">
     <textarea id="input" rows="3" placeholder="메모를 쓰고 엔터"></textarea>
+  </div>
+
+  <!-- 선생님으로 로그인했을 때만 app.js가 이 버튼을 보여줍니다 -->
+  <div id="teacherTools" hidden>
+    <button id="aiCommentBtn">AI 코멘트 받기</button>
   </div>
 
   <!-- 메모는 app.js가 그립니다 -->

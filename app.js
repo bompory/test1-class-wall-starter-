@@ -13,6 +13,7 @@ import {
   orderBy,
   onSnapshot,
   addDoc,
+  updateDoc,
   deleteDoc,
   doc,
   getDoc,
@@ -116,7 +117,8 @@ function watchMemos() {
         id: docSnap.id,
         text: data.text,
         createdAt: toMillis(data.createdAt),
-        uid: data.uid
+        uid: data.uid,
+        aiComment: data.aiComment
       };
     });
     render();
@@ -155,6 +157,14 @@ function makeMemo(memo) {
   const span = document.createElement("span");
   span.textContent = memo.text;
   div.appendChild(span);
+
+  // AI 코멘트가 있으면 메모 아래에 같이 보여줍니다.
+  if (memo.aiComment) {
+    const comment = document.createElement("div");
+    comment.className = "aiComment";
+    comment.textContent = "🤖 " + memo.aiComment;
+    div.appendChild(comment);
+  }
 
   return div;
 }
@@ -231,7 +241,56 @@ onAuthStateChanged(auth, async function (user) {
     logoutBtn.hidden = true;
     currentRole = null;
   }
+  teacherTools.hidden = currentRole !== "teacher";
   render();
+});
+
+
+// ===================================================
+// AI 코멘트 (선생님만 사용)
+// 버튼을 누르면 지금 담벼락에 있는 메모를 몽땅 서버(/api/gemini)로 보내
+// 메모마다 짧은 코멘트를 받아온 다음, 각 메모 문서에 붙여 저장합니다.
+// ===================================================
+
+const teacherTools = document.getElementById("teacherTools");
+const aiCommentBtn = document.getElementById("aiCommentBtn");
+
+aiCommentBtn.addEventListener("click", async function () {
+  if (memos.length === 0) {
+    alert("담벼락에 메모가 없습니다.");
+    return;
+  }
+
+  aiCommentBtn.disabled = true;
+  aiCommentBtn.textContent = "AI가 코멘트를 쓰는 중...";
+
+  try {
+    const res = await fetch("/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        // 개인정보 보호: text만 보냅니다. uid·이메일은 보내지 않습니다.
+        memos: memos.map(function (memo) {
+          return { id: memo.id, text: memo.text };
+        })
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert("AI 코멘트를 받지 못했습니다: " + (data.error || res.status));
+      return;
+    }
+
+    data.comments.forEach(function (item) {
+      updateDoc(doc(db, "memos", item.id), { aiComment: item.comment });
+    });
+  } catch (err) {
+    alert("AI 코멘트 요청 중 오류가 났습니다: " + err.message);
+  } finally {
+    aiCommentBtn.disabled = false;
+    aiCommentBtn.textContent = "AI 코멘트 받기";
+  }
 });
 
 
