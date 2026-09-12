@@ -16,6 +16,13 @@ import {
   deleteDoc,
   doc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 // Firebase 콘솔에서 발급받은 값입니다.
 // Firestore 규칙으로 접근을 막기 전까지는 누구나 읽고 쓸 수 있습니다.
@@ -31,6 +38,8 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const memosCol = collection(db, "memos");
+const auth = getAuth(firebaseApp);
+const googleProvider = new GoogleAuthProvider();
 
 
 // --- 메모 목록 ---
@@ -140,6 +149,36 @@ input.addEventListener("keydown", function (e) {
 
     addMemo(text);
     input.value = "";
+  }
+});
+
+
+// ===================================================
+// 구글 로그인
+// ===================================================
+
+const loginBtn = document.getElementById("loginBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const userName = document.getElementById("userName");
+
+loginBtn.addEventListener("click", function () {
+  signInWithPopup(auth, googleProvider);
+});
+
+logoutBtn.addEventListener("click", function () {
+  signOut(auth);
+});
+
+// 로그인 상태가 바뀔 때마다 버튼과 이름을 다시 그립니다.
+onAuthStateChanged(auth, function (user) {
+  if (user) {
+    userName.textContent = user.displayName + "님";
+    loginBtn.hidden = true;
+    logoutBtn.hidden = false;
+  } else {
+    userName.textContent = "";
+    loginBtn.hidden = false;
+    logoutBtn.hidden = true;
   }
 });
 

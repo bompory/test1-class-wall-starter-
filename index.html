@@ -28,8 +28,12 @@
   <h1>우리 반 담벼락</h1>
 
 
-  <!-- 백엔드 2 시간에 여기에 로그인 버튼과 내 이름이 들어옵니다 -->
-  <div id="userArea">아직 로그인 기능이 없습니다.</div>
+  <!-- 로그인 상태에 따라 app.js가 버튼과 이름을 보여줍니다 -->
+  <div id="userArea">
+    <span id="userName"></span>
+    <button id="loginBtn">구글로 로그인</button>
+    <button id="logoutBtn" hidden>로그아웃</button>
+  </div>
 
   <div id="writer">
     <textarea id="input" rows="3" placeholder="메모를 쓰고 엔터"></textarea>
