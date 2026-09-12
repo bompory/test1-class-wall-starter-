@@ -14,7 +14,8 @@ import {
   onSnapshot,
   addDoc,
   deleteDoc,
-  doc
+  doc,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {
   getAuth,
@@ -68,9 +69,11 @@ function addMemo(text) {
     return;
   }
 
+  // Firestore 규칙이 createdAt을 서버 시각(timestamp)으로 강제하므로
+  // Date.now() 대신 serverTimestamp()를 씁니다.
   addDoc(memosCol, {
     text: text,
-    createdAt: Date.now()
+    createdAt: serverTimestamp()
   });
 }
 
@@ -85,11 +88,13 @@ function watchMemos() {
   const memosQuery = query(memosCol, orderBy("createdAt"));
   onSnapshot(memosQuery, function (snapshot) {
     memos = snapshot.docs.map(function (docSnap) {
-      const data = docSnap.data();
+      // 방금 쓴 메모는 서버 응답 전이라 createdAt이 아직 없을 수 있어
+      // { serverTimestamps: "estimate" } 로 내 컴퓨터 시각을 임시로 채웁니다.
+      const data = docSnap.data({ serverTimestamps: "estimate" });
       return {
         id: docSnap.id,
         text: data.text,
-        createdAt: data.createdAt
+        createdAt: data.createdAt.toMillis()
       };
     });
     render();
