@@ -1,0 +1,69 @@
+// ===================================================
+// Firestore 보안 규칙
+//
+// 이 파일은 참고용으로 저장소에 같이 둡니다.
+// 실제 적용은 Firebase 콘솔 → Firestore Database → 규칙 탭에서
+// 이 내용을 붙여넣고 게시해야 반영됩니다. (CLI 배포는 안 씀)
+//
+// 역할(role)은 users/{uid} 문서에 "student" 또는 "teacher"로 저장합니다.
+// 로그인하면 처음엔 무조건 "student"로 만들어지고, 선생님으로 바꾸는 건
+// 이 규칙으로는 막혀 있어서 콘솔에서 문서를 직접 고쳐야 합니다.
+// ===================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // 로그인한 사람의 role을 users/{uid} 문서에서 읽어 옵니다.
+    function role() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isTeacher() {
+      return isSignedIn() && role() == 'teacher';
+    }
+
+    // --- 사용자 역할 ---
+    match /users/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+
+      // 처음 로그인할 때 본인 문서를 "student"로만 만들 수 있습니다.
+      // teacher로 스스로 만들거나 남의 문서를 만드는 건 막습니다.
+      allow create: if isSignedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['role'])
+        && request.resource.data.role == 'student';
+
+      // role은 콘솔에서 관리자가 직접 바꿉니다. 앱에서는 못 바꿉니다.
+      allow update, delete: if false;
+    }
+
+    // --- 메모 ---
+    match /memos/{memoId} {
+      allow read: if true;
+
+      // 선생님은 조건 없이 쓸 수 있고,
+      // 학생은 로그인한 자기 uid로만, 정해진 모양으로만 쓸 수 있습니다.
+      allow create: if isTeacher() || (
+        isSignedIn()
+        && request.resource.data.keys().hasOnly(['text', 'createdAt', 'uid'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 50
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt == request.time
+      );
+
+      // 수정·삭제는 선생님만. 학생은 자기 것도 못 지웁니다.
+      allow update, delete: if isTeacher();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

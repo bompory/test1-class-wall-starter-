@@ -15,6 +15,8 @@ import {
   addDoc,
   deleteDoc,
   doc,
+  getDoc,
+  setDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {
@@ -39,6 +41,7 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const memosCol = collection(db, "memos");
+const usersCol = collection(db, "users");
 const auth = getAuth(firebaseApp);
 const googleProvider = new GoogleAuthProvider();
 
@@ -47,6 +50,10 @@ const googleProvider = new GoogleAuthProvider();
 // Firestore에서 실시간으로 받아온 값을 여기에 담아 둡니다.
 // createdAt 은 메모를 쓴 시각(밀리초)입니다. 이 값으로 순서를 정합니다.
 let memos = [];
+
+// 로그인한 사람의 역할("student" | "teacher"). 로그인 전에는 null입니다.
+// 선생님으로 바꾸는 건 Firebase 콘솔에서 users/{uid} 문서를 직접 고쳐야 합니다.
+let currentRole = null;
 
 
 // ===================================================
@@ -62,10 +69,14 @@ function loadMemos() {
 }
 
 // 메모를 새로 씁니다.
-// 백엔드 2: 여기에 "누가 썼는지"(uid)를 함께 저장하게 됩니다.
+// 누가 썼는지(uid)를 함께 저장합니다. 로그인하지 않으면 쓸 수 없습니다.
 function addMemo(text) {
   // 5글자 이상일 때만 Firestore에 저장합니다.
   if (!text || text.trim().length < 5) {
+    return;
+  }
+
+  if (!auth.currentUser) {
     return;
   }
 
@@ -73,12 +84,13 @@ function addMemo(text) {
   // Date.now() 대신 serverTimestamp()를 씁니다.
   addDoc(memosCol, {
     text: text,
-    createdAt: serverTimestamp()
+    createdAt: serverTimestamp(),
+    uid: auth.currentUser.uid
   });
 }
 
 // 메모를 지웁니다.
-// 백엔드 2: 지금은 누구든 남의 메모를 지울 수 있습니다. 이걸 막는 것이 과제입니다.
+// 선생님만 지울 수 있습니다 (Firestore 규칙이 막아서, 학생 계정으로 호출해도 거부됩니다).
 function deleteMemo(id) {
   deleteDoc(doc(db, "memos", id));
 }
@@ -129,12 +141,15 @@ function makeMemo(memo) {
   const div = document.createElement("div");
   div.className = "memo";
 
-  const del = document.createElement("button");
-  del.textContent = "×";
-  del.addEventListener("click", function () {
-    deleteMemo(memo.id);
-  });
-  div.appendChild(del);
+  // × 버튼은 선생님한테만 보여줍니다. (학생은 지울 수 없습니다)
+  if (currentRole === "teacher") {
+    const del = document.createElement("button");
+    del.textContent = "×";
+    del.addEventListener("click", function () {
+      deleteMemo(memo.id);
+    });
+    div.appendChild(del);
+  }
 
   const span = document.createElement("span");
   span.textContent = memo.text;
@@ -154,6 +169,11 @@ const input = document.getElementById("input");
 input.addEventListener("keydown", function (e) {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
+
+    if (!auth.currentUser) {
+      alert("메모를 쓰려면 먼저 구글로 로그인해 주세요.");
+      return;
+    }
 
     const text = input.value.trim();
     if (text.length < 5) {
@@ -183,17 +203,33 @@ logoutBtn.addEventListener("click", function () {
   signOut(auth);
 });
 
-// 로그인 상태가 바뀔 때마다 버튼과 이름을 다시 그립니다.
-onAuthStateChanged(auth, function (user) {
+// 처음 로그인한 사람이면 users/{uid} 문서를 만들어 둡니다.
+// 항상 role: "student"로 시작합니다. 선생님으로 바꾸는 건
+// Firebase 콘솔에서 문서를 직접 고쳐야 합니다 (여기서는 절대 안 건드립니다).
+async function ensureUserDoc(user) {
+  const userRef = doc(usersCol, user.uid);
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) {
+    await setDoc(userRef, { role: "student" });
+    return "student";
+  }
+  return snap.data().role;
+}
+
+// 로그인 상태가 바뀔 때마다 버튼, 이름, role을 다시 확인하고 화면을 그립니다.
+onAuthStateChanged(auth, async function (user) {
   if (user) {
     userName.textContent = user.displayName + "님";
     loginBtn.hidden = true;
     logoutBtn.hidden = false;
+    currentRole = await ensureUserDoc(user);
   } else {
     userName.textContent = "";
     loginBtn.hidden = false;
     logoutBtn.hidden = true;
+    currentRole = null;
   }
+  render();
 });
 
 
