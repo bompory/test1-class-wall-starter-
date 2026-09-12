@@ -115,7 +115,8 @@ function watchMemos() {
       return {
         id: docSnap.id,
         text: data.text,
-        createdAt: toMillis(data.createdAt)
+        createdAt: toMillis(data.createdAt),
+        uid: data.uid
       };
     });
     render();
@@ -216,10 +217,11 @@ async function ensureUserDoc(user) {
   return snap.data().role;
 }
 
-// 로그인 상태가 바뀔 때마다 버튼, 이름, role을 다시 확인하고 화면을 그립니다.
+// 로그인 상태가 바뀔 때마다 버튼, 이메일, role을 다시 확인하고 화면을 그립니다.
 onAuthStateChanged(auth, async function (user) {
   if (user) {
-    userName.textContent = user.displayName + "님";
+    console.log("uid:", user.uid, "email:", user.email);
+    userName.textContent = user.email;
     loginBtn.hidden = true;
     logoutBtn.hidden = false;
     currentRole = await ensureUserDoc(user);
